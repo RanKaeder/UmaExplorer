@@ -83,6 +83,9 @@ static flat_hash_map<int, bool> selected_uma_id;
 static bool is_enable_chara = false;
 static bool is_live_bypass = true;
 
+std::map<int, std::pair<int, int>> homeStandConvert{};
+int tmpAddId, tmpTargetId, tmpTargetCloth;
+
 #define WSTR2( s ) L##s
 #define WSTR( s ) WSTR2( s )
 
@@ -1076,7 +1079,32 @@ namespace
 		return reinterpret_cast<decltype(set_antialiasing_hook)*>(set_antialiasing_orig)(g_antialiasing == -1 ? value : g_antialiasing);
 	}
 
+	void* CharacterBuildInfo_ctor_0_orig;
+	void CharacterBuildInfo_ctor_0_hook(void* _this, int charaId, int dressId, int controllerType, int headId,
+		int zekken, int mobId, int backDancerColorId, bool isUseDressDataHeadModelSubId, int audienceId,
+		int motionDressId, bool isEnableModelCache)
+	{
+		// printf("CharacterBuildInfo_ctor_0 charaId: %d, dressId: %d, headId: %d\n", charaId, dressId, headId);
 
+		if (controllerType == 0x5) {  // HomeStand
+			if (homeStandConvert.find(charaId) != homeStandConvert.end()) {
+				auto* replaceChar = &homeStandConvert.at(charaId);
+				charaId = replaceChar->first;
+				dressId = replaceChar->second;
+			}
+		}
+
+		return reinterpret_cast<decltype(CharacterBuildInfo_ctor_0_hook)*>(CharacterBuildInfo_ctor_0_orig)(_this, charaId, dressId, controllerType, headId, zekken, mobId, backDancerColorId, isUseDressDataHeadModelSubId, audienceId, motionDressId, isEnableModelCache);
+	}
+
+	void* CharacterBuildInfo_ctor_1_orig;
+	void CharacterBuildInfo_ctor_1_hook(void* _this, int cardId, int charaId, int dressId, int controllerType,
+		int headId, int zekken, int mobId, int backDancerColorId, int overrideClothCategory,
+		bool isUseDressDataHeadModelSubId, int audienceId, int motionDressId, bool isEnableModelCache)
+	{
+		// printf("CharacterBuildInfo_ctor_1 cardId: %d, charaId: %d, dressId: %d, headId: %d\n", cardId, charaId, dressId, headId);
+		return reinterpret_cast<decltype(CharacterBuildInfo_ctor_1_hook)*>(CharacterBuildInfo_ctor_1_orig)(_this, cardId, charaId, dressId, controllerType, headId, zekken, mobId, backDancerColorId, overrideClothCategory, isUseDressDataHeadModelSubId, audienceId, motionDressId, isEnableModelCache);
+	}
 
 	//
 
@@ -3454,7 +3482,26 @@ namespace
 		void* Global_ProInfo = reftype_hook(assembly, (umastring*)il2cpp_symbols::get_string("System.Reflection.PropertyInfo"));
 		namePro = typePro_hook(Global_ProInfo, il2cpp_symbols::get_string("Name"));
 
+
+#define ADD_HOOK(_name_, _fmt_) \
+	auto _name_##_offset = reinterpret_cast<void*>(_name_##_addr); \
+	printf(_fmt_, _name_##_offset); \
+	MH_CreateHook(_name_##_offset, _name_##_hook, &_name_##_orig); \
+	MH_EnableHook(_name_##_offset); 
 		
+		const auto CharacterBuildInfo_ctor_0_addr =
+			il2cpp_symbols::get_method_pointer(
+				"umamusume.dll", "Gallop",
+				"CharacterBuildInfo", ".ctor", 11
+			);
+		ADD_HOOK(CharacterBuildInfo_ctor_0, "CharacterBuildInfo_ctor_0 at %p\n");
+
+		const auto CharacterBuildInfo_ctor_1_addr =
+			il2cpp_symbols::get_method_pointer(
+				"umamusume.dll", "Gallop",
+				"CharacterBuildInfo", ".ctor", 13
+			);
+		ADD_HOOK(CharacterBuildInfo_ctor_1, "CharacterBuildInfo_ctor_1 at %p\n");
 
 		//Ö´ÐÐGUI³ÌÐò
 		thread([]() {
@@ -4510,6 +4557,41 @@ int imguiwindow()
 					set_antialiasing_hook(g_antialiasing);
 				}
 				ImGui::TreePop();
+			}
+
+			std::vector<int> deleteList{};
+			if (ImGui::TreeNode("Change HomeStand Character")) {
+				for (auto i : homeStandConvert) {
+					ImGui::Text("%d -> %d(%d)", i.first, i.second.first, i.second.second);
+					ImGui::SameLine();
+					if (ImGui::Button("Delete##HomeStand")) {
+						deleteList.push_back(i.first);
+					}
+				}
+				
+				ImGui::NewLine();
+				ImGui::Text("Add Character Replace");
+				ImGui::Text("Orig Char ID (eg.1046)");
+				ImGui::SameLine();
+				ImGui::InputInt("##Set HomeStandId", &tmpAddId);
+				
+				ImGui::Text("Replace Char ID (eg.1046)");
+				ImGui::SameLine();
+				ImGui::InputInt("##Set HomeStandTId", &tmpTargetId);
+				
+				ImGui::Text("Replace Cloth ID (eg.104601)");
+				ImGui::SameLine();
+				ImGui::InputInt("##Set HomeStandCId", &tmpTargetCloth);
+				
+
+				if (ImGui::Button("Add##HomeStand")) {
+					homeStandConvert.emplace(tmpAddId, std::make_pair(tmpTargetId, tmpTargetCloth));
+				}
+
+				ImGui::TreePop();
+			}
+			for (auto i : deleteList) {
+				homeStandConvert.erase(i);
 			}
 
 			ImGui::Separator();
