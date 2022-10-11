@@ -4,10 +4,14 @@
 #include <SQLiteCpp/SQLiteCpp.h>
 #include <vector>
 #include <utility>
+#include <unordered_map>
 
 
 namespace mdb
 {
+	std::unordered_map<int, int> umaDressHeadId{};
+	std::unordered_map<int, int> umaDressHasMini{};
+
 	std::string utf8_encode(const std::wstring& in)
 	{
 		if (in.empty()) return std::string();
@@ -159,4 +163,51 @@ namespace mdb
 		return result;
 
 	}
+
+	void executeQueryDress() {
+		if (master == nullptr) {
+			init();
+		}
+		try
+		{
+			SQLite::Statement query(*master, "SELECT id, head_sub_id, have_mini FROM dress_data");
+
+			while (query.executeStep())
+			{
+				int umaDressId = query.getColumn(0);
+				int umaHeadId = query.getColumn(1);
+				int haveMini = query.getColumn(2);
+				umaDressHeadId.emplace(umaDressId, umaHeadId);
+				umaDressHasMini.emplace(umaDressId, haveMini);
+			}
+		}
+		catch (std::exception& e)
+		{
+			std::cout << "Exception querying master.mdb: " << e.what() << std::endl;
+		}
+
+	}
+
+	int get_head_id_from_dress_id(int dressId) {
+		if (umaDressHeadId.empty()) {
+			executeQueryDress();
+		}
+
+		if (umaDressHeadId.find(dressId) != umaDressHeadId.end()) {
+			return umaDressHeadId.at(dressId);
+		}
+		printf("uma dressId not found: %d\n", dressId);
+		return 0;
+	}
+
+	bool get_dress_have_mini(int dressId) {
+		if (umaDressHasMini.empty()) {
+			executeQueryDress();
+		}
+		if (umaDressHasMini.find(dressId) != umaDressHasMini.end()) {
+			return umaDressHasMini.at(dressId);
+		}
+		return false;
+	}
+
 }
