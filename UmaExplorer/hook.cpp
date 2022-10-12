@@ -36,6 +36,7 @@
 #include "imgui/imgui_impl_dx11.h"
 #include <d3d11.h>
 #include <tchar.h>
+#include <unordered_set>
 
 #include "parallel_hashmap/phmap.h"
 
@@ -85,6 +86,11 @@ static bool is_live_bypass = true;
 
 std::map<int, std::pair<int, int>> homeStandConvert{};
 int tmpAddId, tmpTargetId, tmpTargetCloth;
+bool add_homestand = false;
+bool add_global = false;
+bool add_mini = false;
+std::map<int, std::pair<int, int>> g_global_char_replace{};
+std::map<int, std::pair<int, int>> g_global_mini_char_replace{};
 
 #define WSTR2( s ) L##s
 #define WSTR( s ) WSTR2( s )
@@ -1079,21 +1085,89 @@ namespace
 		return reinterpret_cast<decltype(set_antialiasing_hook)*>(set_antialiasing_orig)(g_antialiasing == -1 ? value : g_antialiasing);
 	}
 
+
+	std::unordered_set<int> otherReplaceTypes{
+	0x1, 0x2, 0x4, 0x8, 0x9, 0xe, 0x5, 0xd, 0x1919810  //, 0xa, 0x3
+	};
+	// 0xa: SingleRace, 0xb: Simple, 0x3: EventTimeline
+	bool enableLoadCharLog = false;
+
+	bool replaceCharController(int* charaId, int* dressId, int* headId, int controllerType) {
+		if (controllerType == 0x5) {  // HomeStand
+			if (homeStandConvert.find(*charaId) != homeStandConvert.end()) {
+				auto* replaceChar = &homeStandConvert.at(*charaId);
+				*charaId = replaceChar->first;
+				*dressId = replaceChar->second;
+				*headId = mdb::get_head_id_from_dress_id(*dressId);
+				return true;
+			}
+		}
+
+		if (controllerType == 0xc) {  // mini
+			if (g_global_mini_char_replace.find(*charaId) != g_global_mini_char_replace.end()) {
+				auto* replaceChar = &g_global_mini_char_replace.at(*charaId);
+				if (mdb::get_dress_have_mini(replaceChar->second)) {
+					*charaId = replaceChar->first;
+					*dressId = replaceChar->second;
+					*headId = mdb::get_head_id_from_dress_id(*dressId);
+					return true;
+				}
+				else {
+					printf("dressId: %d does not have mini character!\n", replaceChar->second);
+					return false;
+				}
+			}
+		}
+
+		if (otherReplaceTypes.find(controllerType) != otherReplaceTypes.end()) {
+			if (g_global_char_replace.find(*charaId) != g_global_char_replace.end()) {
+				auto* replaceChar = &g_global_char_replace.at(*charaId);
+				*charaId = replaceChar->first;
+				*dressId = replaceChar->second;
+				*headId = mdb::get_head_id_from_dress_id(*dressId);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool replaceCharController(int* cardId, int* charaId, int* dressId, int* headId, int controllerType) {
+		if (otherReplaceTypes.find(controllerType) != otherReplaceTypes.end()) {
+			if (replaceCharController(charaId, dressId, headId, controllerType)) {
+				if (*cardId >= 1000) {
+					if ((*cardId / 100) != *charaId) {
+						*cardId = *charaId * 100 + 1;
+					}
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void* StoryCharacter3D_LoadModel_orig;
+	void StoryCharacter3D_LoadModel_hook(int charaId, int cardId, int clothId, int zekkenNumber, int headId, bool isWet,
+		bool isDirt, int mobId, int dressColorId, Il2CppString* zekkenName, int zekkenFontStyle, int color, int fontColor,
+		int suitColor, bool isUseDressDataHeadModelSubId, bool useCircleShadow) {
+
+		if (enableLoadCharLog) printf("StoryCharacter3D_LoadModel CardId: %d charaId: %d DressId: %d DressColorId: %d HeadId: %d MobId: %d ZekkenNumber: %d\n",
+			cardId, charaId, clothId, dressColorId, headId, mobId, zekkenNumber);
+
+		replaceCharController(&cardId, &charaId, &clothId, &headId, 0x1919810);
+
+		return reinterpret_cast<decltype(StoryCharacter3D_LoadModel_hook)*>(StoryCharacter3D_LoadModel_orig)(
+			charaId, cardId, clothId, zekkenNumber, headId, isWet,
+			isDirt, mobId, dressColorId, zekkenName, zekkenFontStyle, color, fontColor,
+			suitColor, isUseDressDataHeadModelSubId, useCircleShadow);
+	}
+
 	void* CharacterBuildInfo_ctor_0_orig;
 	void CharacterBuildInfo_ctor_0_hook(void* _this, int charaId, int dressId, int controllerType, int headId,
 		int zekken, int mobId, int backDancerColorId, bool isUseDressDataHeadModelSubId, int audienceId,
 		int motionDressId, bool isEnableModelCache)
 	{
-		// printf("CharacterBuildInfo_ctor_0 charaId: %d, dressId: %d, headId: %d\n", charaId, dressId, headId);
-
-		if (controllerType == 0x5) {  // HomeStand
-			if (homeStandConvert.find(charaId) != homeStandConvert.end()) {
-				auto* replaceChar = &homeStandConvert.at(charaId);
-				charaId = replaceChar->first;
-				dressId = replaceChar->second;
-			}
-		}
-
+		if (enableLoadCharLog) printf("CharacterBuildInfo_ctor_0 charaId: %d, dressId: %d, headId: %d, controllerType: 0x%x\n", charaId, dressId, headId, controllerType);
+		replaceCharController(&charaId, &dressId, &headId, controllerType);
 		return reinterpret_cast<decltype(CharacterBuildInfo_ctor_0_hook)*>(CharacterBuildInfo_ctor_0_orig)(_this, charaId, dressId, controllerType, headId, zekken, mobId, backDancerColorId, isUseDressDataHeadModelSubId, audienceId, motionDressId, isEnableModelCache);
 	}
 
@@ -1102,8 +1176,16 @@ namespace
 		int headId, int zekken, int mobId, int backDancerColorId, int overrideClothCategory,
 		bool isUseDressDataHeadModelSubId, int audienceId, int motionDressId, bool isEnableModelCache)
 	{
-		// printf("CharacterBuildInfo_ctor_1 cardId: %d, charaId: %d, dressId: %d, headId: %d\n", cardId, charaId, dressId, headId);
+		if (enableLoadCharLog) printf("CharacterBuildInfo_ctor_1 cardId: %d, charaId: %d, dressId: %d, headId: %d, audienceId: %d, motionDressId: %d, controllerType: 0x%x\n", cardId, charaId, dressId, headId, audienceId, motionDressId, controllerType);
+		replaceCharController(&charaId, &dressId, &headId, controllerType);
 		return reinterpret_cast<decltype(CharacterBuildInfo_ctor_1_hook)*>(CharacterBuildInfo_ctor_1_orig)(_this, cardId, charaId, dressId, controllerType, headId, zekken, mobId, backDancerColorId, overrideClothCategory, isUseDressDataHeadModelSubId, audienceId, motionDressId, isEnableModelCache);
+	}
+
+	void* EditableCharacterBuildInfo_ctor_orig;
+	void EditableCharacterBuildInfo_ctor_hook(void* _this, int cardId, int charaId, int dressId, int controllerType, int zekken, int mobId, int backDancerColorId, int headId, bool isUseDressDataHeadModelSubId, bool isEnableModelCache) {
+		if (enableLoadCharLog) printf("EditableCharacterBuildInfo_ctor cardId: %d, charaId: %d, dressId: %d, headId: %d, controllerType: 0x%x\n", cardId, charaId, dressId, headId, controllerType);
+		replaceCharController(&cardId, &charaId, &dressId, &headId, controllerType);
+		return reinterpret_cast<decltype(EditableCharacterBuildInfo_ctor_hook)*>(EditableCharacterBuildInfo_ctor_orig)(_this, cardId, charaId, dressId, controllerType, zekken, mobId, backDancerColorId, headId, isUseDressDataHeadModelSubId, isEnableModelCache);
 	}
 
 	//
@@ -2076,6 +2158,7 @@ namespace
 			need_fullscreen ? r.width : width, need_fullscreen ? r.height : height, need_fullscreen
 			);
 	}
+
 	/*
 	void adjust_size()
 	{
@@ -3503,6 +3586,20 @@ namespace
 			);
 		ADD_HOOK(CharacterBuildInfo_ctor_1, "CharacterBuildInfo_ctor_1 at %p\n");
 
+		auto EditableCharacterBuildInfo_ctor_addr =
+			il2cpp_symbols::get_method_pointer(
+				"umamusume.dll", "Gallop",
+				"EditableCharacterBuildInfo", ".ctor", 10
+			);
+
+		auto StoryCharacter3D_LoadModel_addr = il2cpp_symbols::get_method_pointer(
+			"umamusume.dll", "Gallop",
+			"StoryCharacter3D", "LoadModel", 16
+		);
+
+		ADD_HOOK(EditableCharacterBuildInfo_ctor, "EditableCharacterBuildInfo_ctor at %p\n");
+		ADD_HOOK(StoryCharacter3D_LoadModel, "StoryCharacter3D_LoadModel at %p\n");
+
 		//Ö´ÐÐGUI³ÌÐò
 		thread([]() {
 			auto tr = il2cpp_thread_attach(il2cpp_domain_get());
@@ -4559,13 +4656,29 @@ int imguiwindow()
 				ImGui::TreePop();
 			}
 
-			std::vector<int> deleteList{};
-			if (ImGui::TreeNode("Change HomeStand Character")) {
+			std::vector<int> deleteList0{};
+			std::vector<int> deleteList1{};
+			std::vector<int> deleteList2{};
+			if (ImGui::TreeNode("Change Character")) {
 				for (auto i : homeStandConvert) {
-					ImGui::Text("%d -> %d(%d)", i.first, i.second.first, i.second.second);
+					ImGui::Text("HomeStand : %d -> %d(%d)", i.first, i.second.first, i.second.second);
 					ImGui::SameLine();
 					if (ImGui::Button("Delete##HomeStand")) {
-						deleteList.push_back(i.first);
+						deleteList0.push_back(i.first);
+					}
+				}
+				for (auto i : g_global_char_replace) {
+					ImGui::Text("GlobalChar: %d -> %d(%d)", i.first, i.second.first, i.second.second);
+					ImGui::SameLine();
+					if (ImGui::Button("Delete##GlobalChar")) {
+						deleteList1.push_back(i.first);
+					}
+				}
+				for (auto i : g_global_mini_char_replace) {
+					ImGui::Text("MiniChar  : %d -> %d(%d)", i.first, i.second.first, i.second.second);
+					ImGui::SameLine();
+					if (ImGui::Button("Delete##MiniChar")) {
+						deleteList2.push_back(i.first);
 					}
 				}
 				
@@ -4583,15 +4696,28 @@ int imguiwindow()
 				ImGui::SameLine();
 				ImGui::InputInt("##Set HomeStandCId", &tmpTargetCloth);
 				
+				ImGui::Checkbox("Global", &add_global);
+				ImGui::SameLine();
+				ImGui::Checkbox("HomeStand", &add_homestand);
+				ImGui::SameLine();
+				ImGui::Checkbox("Mini", &add_mini);
 
-				if (ImGui::Button("Add##HomeStand")) {
-					homeStandConvert.emplace(tmpAddId, std::make_pair(tmpTargetId, tmpTargetCloth));
+				if (ImGui::Button("Add##Char")) {
+					if(add_homestand) homeStandConvert.emplace(tmpAddId, std::make_pair(tmpTargetId, tmpTargetCloth));
+					if(add_global) g_global_char_replace.emplace(tmpAddId, std::make_pair(tmpTargetId, tmpTargetCloth));
+					if(add_mini) g_global_mini_char_replace.emplace(tmpAddId, std::make_pair(tmpTargetId, tmpTargetCloth));
 				}
 
 				ImGui::TreePop();
 			}
-			for (auto i : deleteList) {
+			for (auto i : deleteList0) {
 				homeStandConvert.erase(i);
+			}
+			for (auto i : deleteList1) {
+				g_global_char_replace.erase(i);
+			}
+			for (auto i : deleteList2) {
+				g_global_mini_char_replace.erase(i);
 			}
 
 			ImGui::Separator();
