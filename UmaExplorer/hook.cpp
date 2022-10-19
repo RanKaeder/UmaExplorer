@@ -2985,10 +2985,7 @@ namespace
 		MH_CreateHook((LPVOID)spring_addr, spring_hook, &spring_orig);
 		MH_EnableHook((LPVOID)spring_addr);
 		*/
-		auto fps_addr = il2cpp_symbols::get_method_pointer(
-			"UnityEngine.CoreModule.dll", "UnityEngine",
-			"Application", "set_targetFrameRate", 1
-		);
+		auto fps_addr = il2cpp_resolve_icall("UnityEngine.Application::set_targetFrameRate(System.Int32)");
 
 		printf("fps_addr at %p\n", fps_addr);
 
@@ -3552,10 +3549,8 @@ namespace
 		MH_CreateHook((LPVOID)break_addr, break_hook, &break_orig);
 		MH_EnableHook((LPVOID)break_addr);
 
-		auto set_antialiasing_addr = il2cpp_symbols::get_method_pointer(
-			"UnityEngine.CoreModule.dll", "UnityEngine",
-			"QualitySettings", "set_antiAliasing", 1
-		);
+		auto set_antialiasing_addr = il2cpp_resolve_icall("UnityEngine.QualitySettings::set_antiAliasing(System.Int32)");
+
 		MH_CreateHook((LPVOID)set_antialiasing_addr, set_antialiasing_hook, &set_antialiasing_orig);
 		MH_EnableHook((LPVOID)set_antialiasing_addr);
 
