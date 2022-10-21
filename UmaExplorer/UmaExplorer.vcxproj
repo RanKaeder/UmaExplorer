@@ -77,6 +77,7 @@
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="mdb.cpp" />
+    <ClCompile Include="notifier.cpp" />
     <ClCompile Include="proxy.cpp" />
     <ClCompile Include="responses.cpp" />
   </ItemGroup>
@@ -88,6 +89,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="edb.hpp" />
+    <ClInclude Include="httplib.h" />
     <ClInclude Include="il2cpp_symbols.hpp" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
@@ -98,8 +100,10 @@
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="mdb.hpp" />
+    <ClInclude Include="notifier.hpp" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="responses.hpp" />
+    <ClInclude Include="stdinclude.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="UmaExplorer.rc" />

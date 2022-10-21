@@ -40,6 +40,8 @@
 
 #include "parallel_hashmap/phmap.h"
 
+#include "notifier.hpp"
+
 using phmap::flat_hash_map;
 
 
@@ -2469,6 +2471,10 @@ namespace
 			}
 		}
 
+		// 保存应答json数据
+		// std::ofstream o("json/" + current_time() + ".json");
+		// o << std::setw(4) << j << std::endl;
+
 		//原解包代码
 		/*
 		printf("Start! \n");
@@ -2513,6 +2519,13 @@ namespace
 
 		std::string data(dst, ret);
 		responses::print_response_additional_info(data);
+
+		auto notifier_thread = std::thread([&]
+			{
+				notifier::notify_response(data);
+			});
+
+		notifier_thread.join();
 
 
 		printf("Return!\n");
@@ -2605,6 +2618,14 @@ namespace
 		write_file(out_path, src + 170, srcSize - 170);
 		//printf("wrote request to %s\n", out_path.c_str());
 
+		const std::string data(src, srcSize);
+
+		auto notifier_thread = std::thread([&]
+			{
+				notifier::notify_request(data);
+			});
+
+		notifier_thread.join();
 
 
 		return ret;
@@ -5064,6 +5085,11 @@ void attach()
 
 	MH_CreateHook(LoadLibraryW, load_library_w_hook, &load_library_w_orig);
 	MH_EnableHook(LoadLibraryW);
+
+	std::thread ping_thread([]() {
+		notifier::ping();
+		});
+	ping_thread.detach();
 
 	std::thread(edb::init).detach();
 	mdb::init();
