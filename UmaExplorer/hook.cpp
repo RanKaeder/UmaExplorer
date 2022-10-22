@@ -703,7 +703,7 @@ namespace
 		freopen_s(&_, "CONOUT$", "w", stderr);
 		freopen_s(&_, "CONIN$", "r", stdin);
 
-		SetConsoleTitle(L"Umapyoi");
+		SetConsoleTitle(L"UmaExplorer - Debug Console - 本插件免费使用！交流群：601173739");
 
 		// set this to avoid turn japanese texts into question mark
 		SetConsoleOutputCP(CP_UTF8);

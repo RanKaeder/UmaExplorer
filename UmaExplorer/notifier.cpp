@@ -39,15 +39,11 @@ namespace notifier
 		HANDLE mutex = NULL;
 		do {
 			mutex = OpenMutex(MUTEX_MODIFY_STATE, false, ConvertCharToLPWSTR("UmamusumeResponseAnalyzerMutex"));
-#if defined _DEBUG
-			wprintf(L"未发现正在运行的URA，等待一秒后重新尝试连接\n");
-#endif
 			std::this_thread::sleep_for(std::chrono::seconds(1));
 		} while (!mutex);
-#if defined _DEBUG
-		wprintf(L"已发现正在运行的URA\n");
-#endif
-
+			#if defined _DEBUG
+				wprintf(L"Detection of running UmamusumeResponseAnalyzer.\n");
+			#endif
 		if (client == nullptr) {
 			init();
 		}
