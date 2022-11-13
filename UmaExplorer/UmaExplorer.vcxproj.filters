@@ -34,6 +34,9 @@
     <Filter Include="Source Files\imgui">
       <UniqueIdentifier>{73165682-64dc-4b8f-a75c-e498ed54d82c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\notifier">
+      <UniqueIdentifier>{fe14246c-996a-4077-a467-47fa555d6437}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -77,6 +80,9 @@
     </ClCompile>
     <ClCompile Include="imgui\imgui_widgets.cpp">
       <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+	<ClCompile Include="notifier.cpp">
+      <Filter>Source Files\notifier</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -128,6 +134,15 @@
     </ClInclude>
     <ClInclude Include="imgui\imstb_truetype.h">
       <Filter>Source Files\imgui</Filter>
+    </ClInclude>
+	<ClInclude Include="stdinclude.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="httplib.h">
+      <Filter>Source Files\notifier</Filter>
+    </ClInclude>
+    <ClInclude Include="notifier.hpp">
+      <Filter>Source Files\notifier</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

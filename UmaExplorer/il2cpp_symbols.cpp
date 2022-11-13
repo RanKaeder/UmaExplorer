@@ -16,6 +16,7 @@
 
 #include "il2cpp_symbols.hpp"
 
+#include "stdinclude.hpp"
 
 extern bool g_dump_entries;
 extern bool g_enable_logger;

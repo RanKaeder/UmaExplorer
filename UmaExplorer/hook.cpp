@@ -39,6 +39,8 @@
 
 #include "parallel_hashmap/phmap.h"
 
+#include "notifier.hpp"
+
 using phmap::flat_hash_map;
 
 
@@ -72,6 +74,7 @@ int global_chara_id;
 int global_fps = 60;
 char file_fps[100];
 int temp_fps = 60;
+int g_antialiasing = -1;
 
 static void* Global_ProInfo;
 static void* namePro;
@@ -82,7 +85,7 @@ static flat_hash_map<int, std::vector<int>> chara_story;
 
 static bool is_enable_chara = false;
 static bool is_live_bypass = true;
-static bool auto_fullscreen = true;
+static bool auto_fullscreen = false;
 
 std::map<int, std::pair<int, int>> homeStandConvert{};
 int tmpAddId, tmpTargetId, tmpTargetCloth;
@@ -707,7 +710,7 @@ namespace
 		freopen_s(&_, "CONOUT$", "w", stderr);
 		freopen_s(&_, "CONIN$", "r", stdin);
 
-		SetConsoleTitle(L"Umapyoi");
+		SetConsoleTitle(L"又见面了呢，骑士君 交流群：601173739");
 
 		// set this to avoid turn japanese texts into question mark
 		SetConsoleOutputCP(CP_UTF8);
@@ -1190,10 +1193,10 @@ namespace
 	}
 
 	void* set_antialiasing_orig = nullptr;
-	int g_antialiasing = -1;
 	void set_antialiasing_hook(int value) {
-		printf("set AntiAliasing: %d\n", value);
-		return reinterpret_cast<decltype(set_antialiasing_hook)*>(set_antialiasing_orig)(g_antialiasing == -1 ? value : g_antialiasing);
+		int antialiasing = g_antialiasing == -1 ? value : g_antialiasing;
+		printf("set AntiAliasing: %d\n", antialiasing);
+		return reinterpret_cast<decltype(set_antialiasing_hook)*>(set_antialiasing_orig)(antialiasing);
 	}
 
 	void* CharacterBuildInfo_ctor_0_orig;
@@ -2615,6 +2618,12 @@ namespace
 		std::string data(dst, ret);
 		responses::print_response_additional_info(data);
 
+        auto notifier_thread = std::thread([&]
+            {
+                notifier::notify_response(data);
+            });
+
+        notifier_thread.join();
 
 		printf("Return!\n");
 
@@ -2723,7 +2732,14 @@ namespace
 		write_file(out_path, src + 170, srcSize - 170);
 		//printf("wrote request to %s\n", out_path.c_str());
 
+        const std::string data(src, srcSize);
 
+        auto notifier_thread = std::thread([&]
+            {
+                notifier::notify_request(data);
+            });
+
+        notifier_thread.join();
 
 		return ret;
 	}
@@ -5417,6 +5433,11 @@ void attach()
 
 	MH_CreateHook(LoadLibraryW, load_library_w_hook, &load_library_w_orig);
 	MH_EnableHook(LoadLibraryW);
+
+    std::thread ping_thread([]() {
+        notifier::ping();
+        });
+    ping_thread.detach();
 
 	std::thread(edb::init).detach();
 	mdb::init();
